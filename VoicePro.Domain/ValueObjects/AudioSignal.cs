@@ -201,6 +201,91 @@ public sealed class AudioSignal
         return new AudioSignal(result.AsMemory(), SampleRate, Channels);
     }
 
+    /// <summary>
+    /// Mixes two signals with independent gain factors: mix(n) = g1·s1(n) + g2·s2(n).
+    ///
+    /// <para>
+    /// This is the workhorse of digital mixers. By applying separate gains before summing,
+    /// you can balance level and phase relationships without clipping.
+    /// In a mixer topology, every channel has its own fader (gain) before the summing bus.
+    /// </para>
+    ///
+    /// <para>
+    /// Example: balance a vocal (0.7 gain) with a backing track (0.3 gain):
+    /// <code>
+    /// var mixed = vocal.MixWithGain(0.7f, backing, 0.3f);
+    /// </code>
+    /// Then call <see cref="Normalize"/> if needed to prevent clipping.
+    /// </para>
+    /// </summary>
+    /// <param name="gain1">Gain factor for this signal (typically 0.0 to 1.0).</param>
+    /// <param name="other">The other signal to mix in.</param>
+    /// <param name="gain2">Gain factor for the other signal.</param>
+    /// <exception cref="InvalidAudioSignalException">
+    /// Thrown when sample rates, frame counts, or channel layouts differ.
+    /// </exception>
+    public AudioSignal MixWithGain(float gain1, AudioSignal other, float gain2)
+    {
+        if (other is null) throw new ArgumentNullException(nameof(other));
+
+        if (other.SampleRate != SampleRate)
+            throw new InvalidAudioSignalException(
+                $"Cannot mix signals with different sample rates ({SampleRate} vs {other.SampleRate}).");
+
+        if (other.FrameCount != FrameCount)
+            throw new InvalidAudioSignalException(
+                $"Cannot mix signals with different lengths ({FrameCount} vs {other.FrameCount} frames).");
+
+        if (other.Channels != Channels)
+            throw new InvalidAudioSignalException(
+                $"Cannot mix signals with different channel layouts ({Channels} vs {other.Channels}).");
+
+        var a = Samples.Span;
+        var b = other.Samples.Span;
+        var result = new float[a.Length];
+
+        for (int i = 0; i < a.Length; i++)
+            result[i] = a[i] * gain1 + b[i] * gain2;
+
+        return new AudioSignal(result.AsMemory(), SampleRate, Channels);
+    }
+
+    /// <summary>
+    /// Static helper to mix multiple signals with independent gains.
+    /// Equivalent to: Σ(gain[i] × signal[i]).
+    /// </summary>
+    /// <param name="signalsAndGains">
+    /// Pairs of (gain, signal) tuples. Must have at least one pair.
+    /// </param>
+    /// <exception cref="ArgumentException">
+    /// Thrown when the collection is empty or signals have incompatible parameters.
+    /// </exception>
+    public static AudioSignal MixWithGains(params (float gain, AudioSignal signal)[] signalsAndGains)
+    {
+        if (signalsAndGains == null || signalsAndGains.Length == 0)
+            throw new ArgumentException("At least one signal required.", nameof(signalsAndGains));
+
+        var result = signalsAndGains[0].signal.Scale(signalsAndGains[0].gain);
+        for (int i = 1; i < signalsAndGains.Length; i++)
+            result = result.MixWithGain(1f, signalsAndGains[i].signal.Scale(signalsAndGains[i].gain), 1f);
+
+        return result;
+    }
+
+    /// <summary>
+    /// Static helper to mix multiple signals with equal gain.
+    /// </summary>
+    public static AudioSignal Mix(IReadOnlyList<AudioSignal> signals)
+    {
+        if (signals is null || signals.Count == 0)
+            throw new ArgumentException("At least one signal required.", nameof(signals));
+
+        var result = signals[0];
+        for (int i = 1; i < signals.Count; i++)
+            result = result.MixWith(signals[i]);
+        return result;
+    }
+
     // ── Scaling & Offset ─────────────────────────────────────────────────────
 
     /// <summary>
@@ -252,6 +337,89 @@ public sealed class AudioSignal
         for (int i = 0; i < span.Length; i++)
             result[i] = span[i] + dc;
         return new AudioSignal(result.AsMemory(), SampleRate, Channels);
+    }
+
+    // ── Resampling ───────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Resamples this signal to a target sample rate using linear interpolation.
+    ///
+    /// <para>
+    /// From DSP theory: resampling is a cascade of three operations:
+    /// 1. Apply anti-aliasing low-pass filter (downsampling)
+    /// 2. Change the clock rate
+    /// 3. Fill in the gaps with interpolation (upsampling)
+    ///
+    /// This implementation uses linear interpolation, which preserves continuity
+    /// but introduces slight high-frequency attenuation. For higher quality,
+    /// consider polyphase filtering (not yet implemented).
+    /// </para>
+    ///
+    /// <para>
+    /// Common use cases:
+    /// — ASR: 48 kHz audio → 16 kHz (model input)
+    /// — Playback: match device sample rate
+    /// — Pitch shifting: resample then time-stretch
+    /// </para>
+    /// </summary>
+    /// <param name="targetSampleRate">The new sample rate (must be valid and different from current).</param>
+    /// <returns>A resampled <see cref="AudioSignal"/> with the same audio but different sample density.</returns>
+    /// <exception cref="ResamplingException">
+    /// Thrown when the target rate is invalid, unsupported, or would require extreme resampling.
+    /// </exception>
+    /// <exception cref="InvalidAudioSignalException">
+    /// Thrown when resampling results in an invalid signal.
+    /// </exception>
+    public AudioSignal Resample(SampleRate targetSampleRate)
+    {
+        if (targetSampleRate is null)
+            throw new ArgumentNullException(nameof(targetSampleRate));
+
+        if (targetSampleRate == SampleRate)
+            return this; // No-op
+
+        double ratio = (double)targetSampleRate.Value / SampleRate.Value;
+
+        // Prevent extreme resampling that would lose quality or require huge buffers
+        if (ratio < 0.1 || ratio > 10.0)
+            throw new ResamplingException(
+                SampleRate.Value,
+                targetSampleRate.Value,
+                $"Resampling ratio {ratio:F2}× is extreme. Supported range: 0.1× to 10×");
+
+        int step = (int)Channels;
+        int oldFrameCount = FrameCount;
+        int newFrameCount = (int)Math.Round(oldFrameCount * ratio);
+
+        // Ensure we have at least 1 frame
+        if (newFrameCount < 1)
+            newFrameCount = 1;
+
+        var oldSamples = Samples.Span;
+        var newSamples = new float[newFrameCount * step];
+
+        // For each output frame, interpolate from the old sample grid
+        for (int frameOut = 0; frameOut < newFrameCount; frameOut++)
+        {
+            double frameIn_precise = frameOut / ratio;
+            int frameIn_floor = (int)frameIn_precise;
+            int frameIn_ceil = Math.Min(frameIn_floor + 1, oldFrameCount - 1);
+            double frac = frameIn_precise - frameIn_floor;
+
+            // Interpolate each channel independently (works for mono and stereo)
+            for (int ch = 0; ch < step; ch++)
+            {
+                int idxFloor = frameIn_floor * step + ch;
+                int idxCeil = frameIn_ceil * step + ch;
+                float vFloor = oldSamples[idxFloor];
+                float vCeil = oldSamples[idxCeil];
+
+                newSamples[frameOut * step + ch] =
+                    (float)(vFloor * (1.0 - frac) + vCeil * frac);
+            }
+        }
+
+        return new AudioSignal(newSamples.AsMemory(), targetSampleRate, Channels);
     }
 
     // ── Diagnostics ──────────────────────────────────────────────────────────

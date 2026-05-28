@@ -56,14 +56,17 @@ public sealed class HannWindow
     /// The window is computed once and reused for every subsequent call with the same size.
     /// </summary>
     /// <param name="size">Frame size in samples — must be a power of 2 ≥ 2.</param>
-    /// <exception cref="InvalidAudioSignalException">
+    /// <exception cref="InvalidWindowException">
     /// Thrown when <paramref name="size"/> is not a positive power of 2.
     /// </exception>
     public static HannWindow ForSize(int size)
     {
+        // Check if size is a power of 2: a power of 2 has exactly one bit set,
+        // so (size & (size - 1)) == 0 for powers of 2
         if (size < 2 || (size & (size - 1)) != 0)
             throw new InvalidWindowException(
-                $"Hann window size must be a power of 2 ≥ 2, but got {size}.");
+                $"Hann window size must be a power of 2 ≥ 2, but got {size}.",
+                size);
 
         lock (_lock)
         {
@@ -73,6 +76,28 @@ public sealed class HannWindow
                 _cache[size] = window;
             }
             return window;
+        }
+    }
+
+    /// <summary>
+    /// Tries to get a Hann window without throwing.
+    /// </summary>
+    public static bool TryForSize(int size, out HannWindow? window)
+    {
+        if (size < 2 || (size & (size - 1)) != 0)
+        {
+            window = null;
+            return false;
+        }
+
+        lock (_lock)
+        {
+            if (!_cache.TryGetValue(size, out window))
+            {
+                window = new HannWindow(size);
+                _cache[size] = window;
+            }
+            return true;
         }
     }
 
@@ -106,6 +131,9 @@ public sealed class HannWindow
     /// </summary>
     /// <param name="frame">Source frame — must have exactly <see cref="Size"/> samples.</param>
     /// <param name="destination">Output buffer — must have exactly <see cref="Size"/> samples.</param>
+    /// <exception cref="ArgumentException">
+    /// Thrown when frame or destination length does not match <see cref="Size"/>.
+    /// </exception>
     public void Apply(ReadOnlySpan<float> frame, Span<float> destination)
     {
         if (frame.Length != Size)
@@ -135,5 +163,41 @@ public sealed class HannWindow
         return sum / span.Length;
     }
 
-    public override string ToString() => $"HannWindow {{ Size={Size} }}";
+    /// <summary>
+    /// Returns the energy loss from windowing relative to a rectangular window.
+    /// For Hann window this is approximately 1.5 dB.
+    /// </summary>
+    public float WindowingLossdB()
+    {
+        float gain = CoherentGain();
+        return 20f * MathF.Log10(gain);
+    }
+
+    /// <summary>
+    /// Clears the internal cache. Useful in memory-constrained environments
+    /// or for testing.
+    /// </summary>
+    public static void ClearCache()
+    {
+        lock (_lock)
+        {
+            _cache.Clear();
+        }
+    }
+
+    /// <summary>
+    /// Returns the number of cached window sizes currently in memory.
+    /// </summary>
+    public static int CachedCount
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return _cache.Count;
+            }
+        }
+    }
+
+    public override string ToString() => $"HannWindow {{ Size={Size}, Gain={CoherentGain():F3} }}";
 }

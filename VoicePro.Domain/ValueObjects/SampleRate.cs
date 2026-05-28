@@ -100,7 +100,35 @@ public sealed class SampleRate : IEquatable<SampleRate>, IComparable<SampleRate>
     /// <summary>
     /// Converts a sample index to its corresponding time offset in seconds.
     /// </summary>
-    public double ToSeconds(int sampleIndex) => (double)sampleIndex / Value;
+    public double ToSeconds(int sampleIndex)
+    {
+        if (sampleIndex < 0)
+            throw new ArgumentOutOfRangeException(nameof(sampleIndex), "Sample index must be non-negative.");
+
+        return (double)sampleIndex / Value;
+    }
+
+    /// <summary>
+    /// Converts a frequency in Hz to MIDI note number.
+    /// A4 (440 Hz) = MIDI 69.
+    /// </summary>
+    public static int FrequencyToMidiNote(double frequency)
+    {
+        if (frequency <= 0)
+            throw new ArgumentOutOfRangeException(nameof(frequency), "Frequency must be positive.");
+
+        // MIDI formula: note = 69 + 12 * log2(f / 440)
+        return (int)Math.Round(69 + 12 * Math.Log2(frequency / 440.0));
+    }
+
+    /// <summary>
+    /// Converts a MIDI note number to frequency in Hz.
+    /// </summary>
+    public static double MidiNoteToFrequency(int midiNote)
+    {
+        // Inverse formula: f = 440 * 2^((note - 69) / 12)
+        return 440.0 * Math.Pow(2.0, (midiNote - 69) / 12.0);
+    }
 
     // ── Equality, comparison, operators ──────────────────────────────────────
 
