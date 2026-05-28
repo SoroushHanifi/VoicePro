@@ -62,7 +62,7 @@ public sealed class HannWindow
     public static HannWindow ForSize(int size)
     {
         if (size < 2 || (size & (size - 1)) != 0)
-            throw new InvalidAudioSignalException(
+            throw new InvalidWindowException(
                 $"Hann window size must be a power of 2 ≥ 2, but got {size}.");
 
         lock (_lock)

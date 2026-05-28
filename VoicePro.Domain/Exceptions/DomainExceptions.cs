@@ -33,3 +33,11 @@ public sealed class InvalidAudioSignalException : DomainException
 {
     public InvalidAudioSignalException(string message) : base(message) { }
 }
+
+/// <summary>
+/// Thrown when a window function is constructed with invalid parameters.
+/// </summary>
+public sealed class InvalidWindowException : DomainException
+{
+    public InvalidWindowException(string message) : base(message) { }
+}
