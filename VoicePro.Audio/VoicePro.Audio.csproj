@@ -1,0 +1,28 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<LangVersion>latest</LangVersion>
+
+		<PackageId>VoicePro.Audio</PackageId>
+		<Version>0.1.0</Version>
+		<Authors>YourName</Authors>
+		<Description>Audio I/O — WAV (zero-dep), MP3/FLAC via NAudio</Description>
+		<PackageTags>audio;wav;mp3;flac;naudio;loader</PackageTags>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\VoicePro.Domain\VoicePro.Domain.csproj" />
+		<ProjectReference Include="..\VoicePro.Abstractions\VoicePro.Abstractions.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!-- MP3 / FLAC / OGG support -->
+		<PackageReference Include="NAudio" Version="2.2.1" />
+		<!-- FLAC + OGG decoding -->
+		<PackageReference Include="NVorbis" Version="0.10.5" />
+	</ItemGroup>
+</Project>

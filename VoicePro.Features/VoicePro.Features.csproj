@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<LangVersion>latest</LangVersion>
+
+		<PackageId>VoicePro.Features</PackageId>
+		<Version>0.1.0</Version>
+		<Authors>YourName</Authors>
+		<Description>DSP algorithms — FFT, STFT, Mel-spectrogram, MFCC</Description>
+		<PackageTags>dsp;fft;stft;mfcc;mel;spectrogram;audio</PackageTags>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\VoicePro.Domain\VoicePro.Domain.csproj" />
+		<ProjectReference Include="..\VoicePro.Abstractions\VoicePro.Abstractions.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!-- FFT و عملیات ریاضی — معادل numpy در Python -->
+		<PackageReference Include="MathNet.Numerics" Version="5.0.0" />
+	</ItemGroup>
+</Project>

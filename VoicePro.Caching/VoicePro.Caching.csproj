@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<LangVersion>latest</LangVersion>
+
+		<PackageId>VoicePro.Caching</PackageId>
+		<Version>0.1.0</Version>
+		<Authors>YourName</Authors>
+		<Description>Optional Redis caching for VoicePro feature vectors</Description>
+		<PackageTags>redis;caching;voicepro;mfcc;performance</PackageTags>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\VoicePro.Abstractions\VoicePro.Abstractions.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!-- Redis client -->
+		<PackageReference Include="StackExchange.Redis" Version="2.8.16" />
+		<!-- JSON serialization برای ذخیره float[] در Redis -->
+		<PackageReference Include="System.Text.Json" Version="8.0.5" />
+	</ItemGroup>
+</Project>

@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<LangVersion>latest</LangVersion>
+
+		<PackageId>VoicePro.Domain</PackageId>
+		<Version>0.1.0</Version>
+		<Authors>YourName</Authors>
+		<Description>Core DSP domain value objects — AudioSignal, SampleRate</Description>
+		<PackageTags>audio;dsp;voiceprocessing;mfcc;stft</PackageTags>
+		<RepositoryUrl>https://github.com/Soroushhanifi/voicepro</RepositoryUrl>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+	</PropertyGroup>
+	<!-- بدون هیچ NuGet package — zero dependencies -->
+</Project>
