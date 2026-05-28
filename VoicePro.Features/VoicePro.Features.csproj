@@ -15,12 +15,12 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\VoicePro.Domain\VoicePro.Domain.csproj" />
-		<ProjectReference Include="..\VoicePro.Abstractions\VoicePro.Abstractions.csproj" />
+		<!-- FFT و عملیات ریاضی — معادل numpy در Python -->
+		<PackageReference Include="MathNet.Numerics" Version="5.0.0" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<!-- FFT و عملیات ریاضی — معادل numpy در Python -->
-		<PackageReference Include="MathNet.Numerics" Version="5.0.0" />
+	  <ProjectReference Include="..\VoicePro.Abstractions\VoicePro.Abstractions.csproj" />
+	  <ProjectReference Include="..\VoicePro.Domain\VoicePro.Domain.csproj" />
 	</ItemGroup>
 </Project>

@@ -1,6 +1,8 @@
-﻿using VoicePro.Domain.Exceptions;
+﻿using MathNet.Numerics;
+using VoicePro.Domain.Exceptions;
+using VoicePro.Domain.ValueObjects;
 
-namespace VoicePro.Domain.ValueObjects;
+namespace VoicePro.Features.ValueObjects;
 
 /// <summary>
 /// Immutable value object representing a complex-valued signal — the output of an FFT.
@@ -15,6 +17,11 @@ namespace VoicePro.Domain.ValueObjects;
 /// For a real-valued input of length N, the FFT produces N complex bins, but only
 /// bins 0..N/2 are independent — the upper half is the complex conjugate mirror
 /// of the lower half. Use <see cref="UniqueLength"/> to access only the meaningful bins.
+/// </para>
+///
+/// <para>
+/// This type lives in <c>VoicePro.Features</c> (not Domain) because it is the direct
+/// output of the FFT algorithm — it has no meaning without that computation.
 /// </para>
 /// </summary>
 public sealed class ComplexSignal
@@ -46,19 +53,35 @@ public sealed class ComplexSignal
     /// <summary>
     /// Creates a <see cref="ComplexSignal"/> from FFT output bins.
     /// </summary>
-    /// <param name="bins">Full FFT output array.</param>
+    /// <param name="bins">Full FFT output — must be a power of 2 and length ≥ 2.</param>
     /// <param name="sampleRate">Sample rate of the original audio.</param>
     public ComplexSignal(ReadOnlyMemory<ComplexSample> bins, SampleRate sampleRate)
     {
         if (bins.IsEmpty)
             throw new InvalidAudioSignalException("ComplexSignal bins must not be empty.");
 
-        if ((bins.Length & (bins.Length - 1)) != 0)
+        if (bins.Length < 2 || (bins.Length & (bins.Length - 1)) != 0)
             throw new InvalidAudioSignalException(
-                $"FFT size must be a power of 2, but got {bins.Length}.");
+                $"FFT size must be a power of 2 and at least 2, but got {bins.Length}.");
 
         Bins = bins;
         SampleRate = sampleRate ?? throw new ArgumentNullException(nameof(sampleRate));
+    }
+
+    // ── Factory ──────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Creates a <see cref="ComplexSignal"/> directly from MathNet Complex32 array —
+    /// the native output of <see cref="MathNet.Numerics.IntegralTransforms.Fourier"/>.
+    /// Avoids an extra allocation by converting in-place.
+    /// </summary>
+    internal static ComplexSignal FromMathNet(Complex32[] mathNetBins, SampleRate sampleRate)
+    {
+        var bins = new ComplexSample[mathNetBins.Length];
+        for (int i = 0; i < mathNetBins.Length; i++)
+            bins[i] = ComplexSample.FromComplex32(mathNetBins[i]);
+
+        return new ComplexSignal(bins.AsMemory(), sampleRate);
     }
 
     // ── Indexer ──────────────────────────────────────────────────────────────
@@ -92,7 +115,7 @@ public sealed class ComplexSignal
     // ── Spectrum extraction ──────────────────────────────────────────────────
 
     /// <summary>
-    /// Magnitude spectrum: |FFT(k)| = √(re² + im²) for each bin.
+    /// Magnitude spectrum: |FFT(k)| for each bin.
     /// Represents the amplitude of each frequency component.
     /// Only returns the <see cref="UniqueLength"/> non-mirrored bins.
     /// </summary>
@@ -100,15 +123,13 @@ public sealed class ComplexSignal
     {
         var span = Bins.Span;
         var result = new float[UniqueLength];
-
         for (int k = 0; k < UniqueLength; k++)
             result[k] = span[k].Magnitude;
-
         return result;
     }
 
     /// <summary>
-    /// Power spectrum: |FFT(k)|² = re² + im² for each bin.
+    /// Power spectrum: |FFT(k)|² for each bin.
     /// Avoids a sqrt — use when relative comparisons are enough.
     /// Only returns the <see cref="UniqueLength"/> non-mirrored bins.
     /// </summary>
@@ -116,10 +137,8 @@ public sealed class ComplexSignal
     {
         var span = Bins.Span;
         var result = new float[UniqueLength];
-
         for (int k = 0; k < UniqueLength; k++)
             result[k] = span[k].Power;
-
         return result;
     }
 
@@ -131,10 +150,8 @@ public sealed class ComplexSignal
     {
         var span = Bins.Span;
         var result = new float[UniqueLength];
-
         for (int k = 0; k < UniqueLength; k++)
             result[k] = span[k].Phase;
-
         return result;
     }
 

@@ -201,6 +201,59 @@ public sealed class AudioSignal
         return new AudioSignal(result.AsMemory(), SampleRate, Channels);
     }
 
+    // ── Scaling & Offset ─────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Multiplies every sample by <paramref name="gain"/>: scaled(n) = s(n) × g.
+    ///
+    /// <para>
+    /// gain &gt; 1 amplifies, 0 &lt; gain &lt; 1 attenuates, gain = 0 produces silence.
+    /// For PCM conversion use <see cref="Normalize"/> first so the signal fits
+    /// within the quantizer's range without clipping.
+    /// </para>
+    /// </summary>
+    public AudioSignal Scale(float gain)
+    {
+        var span = Samples.Span;
+        var result = new float[span.Length];
+        for (int i = 0; i < span.Length; i++)
+            result[i] = span[i] * gain;
+        return new AudioSignal(result.AsMemory(), SampleRate, Channels);
+    }
+
+    /// <summary>
+    /// Scales the signal so its peak absolute amplitude equals 1.0 (normalized range).
+    /// Returns itself unchanged when the signal is already silent.
+    ///
+    /// <para>
+    /// Normalization is required before PCM quantization to use the full dynamic range
+    /// without overflow — equivalent to SNR-optimal gain staging.
+    /// </para>
+    /// </summary>
+    public AudioSignal Normalize()
+    {
+        float peak = PeakAmplitude();
+        return peak < float.Epsilon ? this : Scale(1f / peak);
+    }
+
+    /// <summary>
+    /// Adds a constant DC offset to every sample: offset(n) = s(n) + dc.
+    ///
+    /// <para>
+    /// Shifts the mean value of the signal. A bipolar signal in [−1, +1]
+    /// becomes unipolar in [0, +1] with dc = 1.0 followed by Scale(0.5).
+    /// This is exactly how the Hann window is constructed from a cosine wave.
+    /// </para>
+    /// </summary>
+    public AudioSignal WithOffset(float dc)
+    {
+        var span = Samples.Span;
+        var result = new float[span.Length];
+        for (int i = 0; i < span.Length; i++)
+            result[i] = span[i] + dc;
+        return new AudioSignal(result.AsMemory(), SampleRate, Channels);
+    }
+
     // ── Diagnostics ──────────────────────────────────────────────────────────
 
     /// <summary>Returns the peak absolute amplitude across all samples.</summary>
