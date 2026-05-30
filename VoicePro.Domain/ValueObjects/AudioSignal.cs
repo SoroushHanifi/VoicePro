@@ -21,7 +21,7 @@ public enum AudioChannels
 /// Use <see cref="GetChannel"/> to extract a single channel as a new <see cref="AudioSignal"/>.
 /// </para>
 /// </summary>
-public sealed class AudioSignal
+public sealed partial class AudioSignal
 {
     // ── Core data ────────────────────────────────────────────────────────────
 
